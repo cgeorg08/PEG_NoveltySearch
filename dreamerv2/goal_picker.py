@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow_probability import distributions as tfd
 import numpy as np
 from time import time
+import random
 
 class Greedy:
   def __init__(self, replay, wm, reward_fn,  state_key, goal_key, batch_size, topk=10, exp_weight=1.0):
@@ -824,3 +825,83 @@ def softmax(X, theta=1.0, axis=None):
   if len(X.shape) == 1: p = p.flatten()
 
   return p
+
+class NoveltyPlanner:
+  def __init__(self, goal_buffer_limit, minimum, maximum, L, K, S):
+    self.goal_buffer = []
+    self.goal_buffer_limit = goal_buffer_limit
+    self.minimum = minimum
+    self.maximum = maximum
+    self.L = L
+    self.K = K
+    self.S = S
+    self.generations = 10
+
+  def get_novel_goal(self):
+    # todo: improvements:
+    # 1. how to generate points? --> will step 4 with second short-scope jump help?
+    # 2. how to remove points from the goal_buffer? --> pop and clear
+    # 3. Change hyperparameters: goal_buffer_limit, L, K, S
+
+    # step 0: check the limit for the goal_buffer -> if exceeds then drop the oldest one
+    if len(self.goal_buffer)==self.goal_buffer_limit:
+      # self.goal_buffer = []
+      self.goal_buffer.pop(0)
+
+    # step 0: cold start
+    if len(self.goal_buffer)==0:
+      long_scp_gen = list()
+      for i in range(self.L):
+        long_scp_gen.append((random.uniform(self.minimum, self.maximum),random.uniform(self.minimum, self.maximum)))
+      long_scp_gen_array = np.array(long_scp_gen)
+      chosen_goal = long_scp_gen[random.randint(0,self.L-1)]
+      self.goal_buffer.append(chosen_goal)
+      return np.array(chosen_goal)
+
+    current_point = (0.0, 0.0)
+    for i in range(self.generations):
+      lower_bound = self.minimum
+      upper_bound = 0.0
+      total_genpoints = 0
+      if i == 0:
+        # first generation
+        upper_bound = self.maximum  
+        total_genpoints = self.L
+      else:
+        # other generations
+        upper_bound = 3.5  
+        total_genpoints = self.S         
+        
+      # step 1: generate points & form the new points (plus if generation>1) and clip them
+      long_scp_gen = list()
+      for i in range(total_genpoints):
+        random_point = (random.uniform(lower_bound, upper_bound),random.uniform(lower_bound, upper_bound))
+        random_point_x, random_point_y = random_point[0], random_point[1]
+        random_point_x = random_point_x + current_point[0]
+        random_point_y = random_point_y + current_point[1]
+        random_point_x = random_point_x if random_point_x < self.maximum else self.maximum
+        random_point_x = random_point_x if random_point_x > self.minimum else self.minimum
+        random_point_y = random_point_y if random_point_y < self.maximum else self.maximum
+        random_point_y = random_point_y if random_point_y > self.minimum else self.minimum
+        random_point_modif = (random_point_x, random_point_y)
+        long_scp_gen.append(random_point_modif)
+      long_scp_gen_array = np.array(long_scp_gen)
+
+      # step 2: find K neighbours for each generated point
+      goal_buffer_array = np.array(self.goal_buffer)
+      dist_array = np.zeros((total_genpoints, self.K))
+      for i in range(total_genpoints):
+        # 1D array of <goal_buffer_array> size
+        cur_distances_array = np.sqrt(np.sum((goal_buffer_array - long_scp_gen_array[i])**2, axis=1))   
+        for j in range(min(self.K, len(self.goal_buffer))):
+          min_index = np.argmin(cur_distances_array)
+          dist_array[i,j] = cur_distances_array[min_index]
+          cur_distances_array = np.delete(cur_distances_array, min_index)
+
+      # step 3: find novelty score for the L points and get the max
+      novelty_scores = np.sum(dist_array, axis=1) / self.K
+      chosen_goal = long_scp_gen[np.argmax(novelty_scores)]
+      current_point = chosen_goal
+
+    self.goal_buffer.append(chosen_goal)
+    return np.array(chosen_goal)

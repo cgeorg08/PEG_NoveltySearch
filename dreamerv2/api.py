@@ -15,6 +15,7 @@ from collections import defaultdict
 from time import time
 from tqdm import tqdm
 import imageio
+from tqdm import tqdm
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 logging.getLogger().setLevel('ERROR')
@@ -171,7 +172,7 @@ def train(env, eval_env, eval_fn, report_render_fn, ep_render_fn, plot_fn, cem_v
     agnt.load(logdir / 'variables.pkl')
   else:
     print('Pretrain agent.')
-    for _ in range(config.pretrain):
+    for _ in tqdm(range(config.pretrain)):
       for i in range(config.gcp_train_factor - 1):
         train_gcp(next(gcp_dataset))
       train_agent(next(dataset))
@@ -226,6 +227,7 @@ def train(env, eval_env, eval_fn, report_render_fn, ep_render_fn, plot_fn, cem_v
   train_gcpolicy = partial(agnt.policy, mode='train')
   eval_gcpolicy = partial(agnt.policy, mode='eval')
   def expl_policy(obs, state, **kwargs):
+    # print('[HELP:] Exploration policy helper local')
     actions, state = agnt.expl_policy(obs, state, mode='train')
     if config.go_expl_rand_ac:
       actions, _ = random_agent(obs)
@@ -236,6 +238,9 @@ def train(env, eval_env, eval_fn, report_render_fn, ep_render_fn, plot_fn, cem_v
   p_cfg = config.planner
   if config.goal_strategy == "Greedy":
     goal_strategy = goal_picker_cls(replay, agnt.wm, agnt._expl_behavior._intr_reward, config.state_key, config.goal_key, 1000)
+  elif config.goal_strategy == "NoveltyPlanner":
+    # initialize goal_strategy by calling the init of NoveltyPlanner (through goal_picker_cls)
+    goal_strategy = goal_picker_cls(1000, 0.001, 9.999, 3, 3, 3)
   elif config.goal_strategy == "SampleReplay":
     goal_strategy = goal_picker_cls(agnt.wm, dataset, config.state_key, config.goal_key)
   elif config.goal_strategy == "SubgoalPlanner":
@@ -299,15 +304,21 @@ def train(env, eval_env, eval_fn, report_render_fn, ep_render_fn, plot_fn, cem_v
     raise NotImplementedError
 
   def get_goal(obs, state=None, mode='train'):
+    # print('[HELP:] Inside get_goal(): obs 1:',obs) 
     obs = tf.nest.map_structure(lambda x: tf.expand_dims(tf.expand_dims(tf.tensor(x),0),0), obs)[0]
+    # print('[HELP:] Inside get_goal(): obs 2:',obs)
     obs = agnt.wm.preprocess(obs)
+    # print('[HELP:] Inside get_goal(): obs 3:',obs)
     if np.random.uniform() < config.planner.sample_env_goal_percent:
       goal = sample_env_goals(1)
       return tf.squeeze(goal)
 
+    # print('[HELP: inside get_goal] the goal strategy is ', config.goal_strategy)
     if config.goal_strategy == "Greedy":
       goal = goal_strategy.get_goal()
       goal_strategy.will_update_next_call = False
+    elif config.goal_strategy == "NoveltyPlanner":
+      goal = goal_strategy.get_novel_goal()
     elif config.goal_strategy == "SampleReplay":
       goal = goal_strategy.get_goal(obs)
     elif config.goal_strategy == "SubgoalPlanner":
@@ -356,7 +367,9 @@ def train(env, eval_env, eval_fn, report_render_fn, ep_render_fn, plot_fn, cem_v
 
   while step < config.steps:
     logger.write()
-    # alternate between these 3 types of rollouts.
+    # alternate between these 3 types of rollouts. By using the default settings, only the 3rd option is executed. 
+    # train_gcpolicy -> agnt.policy with mode='train' (line 226 - api.py) -> gc_agent.py / def policy() line 61
+    # expl_policy -> from line 228 api.py using also agnt.expl_policy -> gc_agent.py / def expl_policy() line 34
     """ 1. train: run goal cond. policy for entire rollout"""
     if should_gcp_rollout(num_algo_updates):
       driver(train_gcpolicy, get_goal=get_goal, episodes=1)

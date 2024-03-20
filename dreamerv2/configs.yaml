@@ -213,7 +213,7 @@ peg_point_maze:
   grad_heads: [decoder]
   goal_policy_rollout_percentage: 0.5
   goal_update_every: 50 # every 50 episodes, update goal picker
-  goal_strategy: 'SubgoalPlanner'
+  goal_strategy: 'NoveltyPlanner'
   goal_key: 'goal'
   go_expl_rand_ac: False
   gcp_rollout_every: 0 # run gcp rollout every X algo updates
@@ -234,7 +234,7 @@ peg_point_maze:
   rssm: {ensemble: 1, hidden: 200, deter: 200, stoch: 50, discrete: 0, act: elu, norm: none, std_act: sigmoid2, min_std: 0.1}
   subgoal_threshold: 5.0
   state_key: 'observation'
-  steps: 1000000
+  steps: 600000
   time_limit: 50
   train_every: 5
   task: pointmaze
@@ -389,7 +389,7 @@ debug:
 test_maze:
   jit: False
   eval_every: 100 # set this to a low number if you're debugging eval logic
-  goal_strategy: 'SubgoalPlanner'
+  goal_strategy: 'NoveltyPlanner'
   log_every: 500
   prefill: 1
   pretrain: 1

@@ -96,7 +96,7 @@ dependencies:
     - markupsafe==2.0.1
     - matplotlib==3.3.4
     - mistune==0.8.4
-    - mujoco-py==2.0.2.13
+    - mujoco-py<2.2,>=2.1
     - multiprocess==0.70.12.2
     - nbclassic==0.3.5
     - nbclient==0.5.9
