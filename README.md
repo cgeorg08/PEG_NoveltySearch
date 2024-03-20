@@ -4,6 +4,17 @@ ICLR 2023 (Spotlight)\
 
 The official implementation of the Planning Exploratory Goals (PEG) agent, an unsupervised RL agent for hard exploration tasks.
 
+---
+**Note: Hello, We are [Constantinos Georgiou](https://github.com/cgeorg08) and [ Alessandro Marincioni](https://github.com/Maranc98) !!**
+
+In the context of the seminar to Advanced Deep Reinforcement Learning, we had the chance to play around with the PEG agent. We came up with two different contributions:
+- New goal-picker mechanism based on the Novelty Search and Evolutionary Algorithms (in this repository)
+- Pixel-based PEG version to extend the algorithm to image domains ([ Click here ](https://github.com/Maranc98/image_peg_experiments))
+
+# **🤖 Enjoy 🤖** 
+
+---
+
 ![PEG Teaser](docs/peg_teaser.gif)
 
 This codebase provides:
